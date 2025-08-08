@@ -1,0 +1,280 @@
+#include <stdio.h>
+#include <stdlib.h>
+#include <linux/fb.h>
+#include <fcntl.h>
+#include <unistd.h>
+#include <sys/ioctl.h>
+#include <sys/mman.h>
+#include <errno.h>
+#include <string.h>
+#include <stdbool.h>
+#include <math.h>
+
+/* Ref: https://github.com/dhepper/font8x8 */
+#include "font8x8_basic.h"
+#include "font8x8_box.h"
+
+#define FRAMEBUFFERDEVICE "/dev/fb0"
+#define EOK 0
+
+int fb_fd;
+void *fbuffer = NULL;
+struct fb_fix_screeninfo fix;
+struct fb_var_screeninfo info;
+int bytes_per_pixel;
+
+int openfbuffer()
+{
+  int ret = EOK;
+
+  fb_fd = open(FRAMEBUFFERDEVICE, O_RDWR);
+  if (fb_fd == -1) {
+    fprintf(stderr, "%s open failed\n", FRAMEBUFFERDEVICE);
+    return -1;
+  }
+
+  ret = ioctl(fb_fd, FBIOGET_FSCREENINFO, &fix);
+  if (ret != 0) {
+    fprintf(stderr, "ioctl fb_fd failed\n");
+    return ret;
+  }
+
+  ret = ioctl(fb_fd, FBIOGET_VSCREENINFO, &info);
+  if (ret != 0) {
+    fprintf(stderr, "ioctl fb_fd failed\n");
+    return ret;
+  }
+
+  fbuffer = mmap(NULL, fix.smem_len, PROT_READ | PROT_WRITE,
+                 MAP_FILE | MAP_SHARED, fb_fd, 0);
+  if (fbuffer == MAP_FAILED) {
+    close(fb_fd);
+    return ENOMEM;
+  }
+
+  memset(fbuffer, 0, fix.smem_len);
+
+  return ret;
+}
+
+void closefbuffer()
+{
+  munmap(fbuffer, fix.smem_len);
+  close(fb_fd);
+}
+
+static inline void set_pixel_color(int x, int y, unsigned int color)
+{
+  int offset;
+  unsigned int *pixel;
+
+  if (x < 0 || x > info.xres || y < 0 || y > info.yres) {
+    return;
+  }
+
+  if (color == 0)
+    return;
+
+  offset = (y * fix.line_length) + (x * bytes_per_pixel);
+
+  pixel = (unsigned int *) ((char *) fbuffer + offset);
+
+  *pixel = color;
+}
+
+/* Bresenham line algorithm
+ * Note: I have tried to prove this algorithm
+ * by hand multilple times but failed everytime.
+ * One day! */
+void draw_line(int x1, int y1, int x2, int y2)
+{
+
+  int d1 = 2 * (y2 - y1);
+  int d2 = d1 - (x2 - x1);
+
+  for (int x = x1, y = y1; x <= x2; x++) {
+    set_pixel_color(x, y, 0xFFFFFF);
+    d2 += d1;
+
+    if (d2 >= 0) {
+      y++;
+      d2 -= 2 * (x2 - x1);
+    }
+  }
+
+  /* ----------------------------
+   Brute force (inefficient)
+
+  int m, c;
+
+  m = (y2 - y1) / (x2 - x1);
+  c = y1 - m * x1;
+
+  for (int x = x1; x <= x2; x++) {
+    int y;
+
+    y = round(m * x + c);
+
+    set_pixel_color(x, y, 0xFFFFFF);
+  }
+
+  ---------------------------- */
+}
+
+void draw_square(int x, int y, int length)
+{
+  /* Brute force (efficient) */
+
+  for (int i = 0; i < length; i++) {
+    for (int j = 0; j < length; j++) {
+     set_pixel_color(x + i, y + j, 0xFFFFFF);
+     set_pixel_color(x - i, y + j, 0xFFFFFF);
+     set_pixel_color(x + i, y - j, 0xFFFFFF);
+     set_pixel_color(x - i, y - j, 0xFFFFFF);
+    }
+  }
+}
+
+void draw_symmetric_points(int x, int y, int cx, int cy)
+{
+  set_pixel_color(x + cx, y + cy, 0xFFFFFF);
+  set_pixel_color(x + cx, y - cy, 0xFFFFFF);
+  set_pixel_color(x - cx, y + cy, 0xFFFFFF);
+  set_pixel_color(x - cx, y - cy, 0xFFFFFF);
+  set_pixel_color(x + cy, y + cx, 0xFFFFFF);
+  set_pixel_color(x + cy, y - cx, 0xFFFFFF);
+  set_pixel_color(x - cy, y + cx, 0xFFFFFF);
+  set_pixel_color(x - cy, y - cx, 0xFFFFFF);
+}
+
+/* Bresenham's circle drawing algorithm
+ *
+ * Ref: https://imruljubair.github.io/teaching/material/CSE4203/Chapter%20-%208%20(part%20-%20B).pdf */
+void draw_circle(int x, int y, int radius)
+{
+  int cx = 0;
+  int cy = radius;
+  int d = 1 - radius;
+
+  draw_symmetric_points(x, y, cx, cy);
+
+  while (cy > cx) {
+    if (d < 0) {
+      d = d + 2 * cx + 3;
+    } else {
+      d = d + 2 * (cx - cy) + 5;
+      cy--;
+    }
+
+    cx++;
+    draw_symmetric_points(x, y, cx, cy);
+  }
+}
+
+void draw_character(char c, int x, int y, unsigned int color)
+{
+  int length = 8;
+  unsigned char *map;
+
+  map = font8x8_basic[c];
+
+  for (int i = 0; i < length; i++) {
+    unsigned char row = map[i];
+    for (int j = 0; j < length; j++) {
+      unsigned int clr = ((row >> j) & 1) * color;
+
+      set_pixel_color(x + j, y + i, clr);
+    }
+  }
+}
+
+void draw_crosshair(int x, int y,
+                    int length, int gap, int width)
+{
+  draw_square(x, y, length);
+
+  for (int i = 0; i < width; i++) {
+    set_pixel_color(x, y - length - gap - i, 0xFFFFFF);
+    set_pixel_color(x, y + length + gap + i, 0xFFFFFF);
+    set_pixel_color(x - length - gap - i, y, 0xFFFFFF);
+    set_pixel_color(x + length + gap + i, y, 0xFFFFFF);
+  }
+}
+
+void cat(char *file)
+{
+  FILE *fptr;
+  char c;
+  int x = 0, y = 10;
+  int font_width = 9;
+
+  /* WIP: implement paging */
+
+  fptr = fopen(file, "r");
+
+  while ((c = fgetc(fptr)) != EOF) {
+    if (c == '\n') {
+      x = 0;
+      y += font_width;
+      continue;
+    }
+
+    if (x + font_width > info.xres) {
+      x = 0;
+      y += font_width;
+    }
+
+    /* This is very inefficient; we can reuse
+     * the calculate offsets but don't care */
+    draw_character(c, x, y, 0xFFFFFF);
+    x += font_width;
+  }
+
+  fclose(fptr);
+}
+
+void draw()
+{
+  bytes_per_pixel = info.bits_per_pixel / 8;
+
+  /* cat("README.md"); */
+
+  /* draws a cirlce */
+  int cx = info.xres / 2;
+  int cy = info.yres / 2;
+  draw_circle(cx, cy, 200);
+
+  /* draws crosshair */
+  draw_crosshair(cx, cy, 5, 2, 3);
+
+  /* draws characters on screen
+  int cx = info.xres / 2;
+  int cy = info.yres / 2;
+
+  cx -= 27;
+  cx += 9;draw_character('H', cx, cy, 0xFFFFFF);
+  cx += 9;draw_character('E', cx, cy, 0xFFFFFF);
+  cx += 9;draw_character('L', cx, cy, 0xFFFFFF);
+  cx += 9;draw_character('L', cx, cy, 0xFFFFFF);
+  cx += 9;draw_character('0', cx, cy, 0xFFFFFF);
+  cx += 9;draw_character('!', cx, cy, 0xFFFFFF);
+  */
+}
+
+int main()
+{
+  int ret = EOK;
+
+  ret = openfbuffer();
+  if (ret != EOK) {
+    return ret;
+  }
+
+  draw();
+
+  sleep(10);
+
+  closefbuffer();
+
+  return 0;
+}
