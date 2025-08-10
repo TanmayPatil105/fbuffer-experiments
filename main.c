@@ -147,9 +147,30 @@ void draw_symmetric_points(int x, int y, int cx, int cy)
   set_pixel_color(x - cy, y - cx, 0xFFFFFF);
 }
 
-/* Bresenham's circle drawing algorithm
+/* Bresenham's circle drawing algorithm and Midpoint cirlce drawing algorithm
  *
  * Ref: https://imruljubair.github.io/teaching/material/CSE4203/Chapter%20-%208%20(part%20-%20B).pdf */
+void _draw_circle(int x, int y, int radius)
+{
+  int cx = 0;
+  int cy = radius;
+  int d = 3 - 2 * radius;
+
+  draw_symmetric_points(x, y, cx, cy);
+
+  while (cx <= cy) {
+    cx++;
+    if (d < 0) {
+      d = d + 4 * cx + 6;
+    } else {
+      cy = cy - 1;
+      d = d + 4 * (cx - cy) + 10;
+    }
+
+    draw_symmetric_points(x, y, cx, cy);
+  }
+}
+
 void draw_circle(int x, int y, int radius)
 {
   int cx = 0;
