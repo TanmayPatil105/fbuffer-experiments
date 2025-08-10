@@ -9,6 +9,7 @@
 #include <string.h>
 #include <stdbool.h>
 #include <math.h>
+#include <stdlib.h>
 
 /* Ref: https://github.com/dhepper/font8x8 */
 #include "font8x8_basic.h"
@@ -192,6 +193,103 @@ void draw_circle(int x, int y, int radius)
   }
 }
 
+#define RANGE 2.0
+
+/* Mandelbro's fractal */
+void draw_fractal()
+{
+  float x_min = -RANGE;
+  float x_max = RANGE;
+  float y_min = -RANGE;
+  float y_max = RANGE;
+  float *normalized_x = NULL;
+  float *normalized_y = NULL;
+  float x_interval, y_interval;
+  int max_iterations = 2000;
+  const unsigned int colors[] = {
+    0xFFFFFF,
+    0xEEEEEE,
+    0xDDDDDD,
+    0xCCCCCC,
+    0xBBBBBB,
+    0xAAAAAA,
+    0x999999,
+    0x888888,
+    0x777777,
+    0x666666,
+    0x555555,
+    0x444444,
+    0x333333,
+    0x222222,
+    0x111111,
+    0x000000,
+  };
+  int num_colors = sizeof (colors) / sizeof (colors[0]);
+
+  normalized_x = malloc(sizeof (float) * info.xres);
+  normalized_y = malloc(sizeof (float) * info.yres);
+
+  x_interval = (x_max - x_min) / info.xres;
+  y_interval = (y_max - y_min) / info.yres;
+
+  normalized_x[0] = x_min;
+  normalized_y[0] = y_max;
+
+  /* Display resolution: 1366 * 768
+     Normalized into: 4.0 * 4.0 */
+  for (int i = 1; i < info.xres; i++) {
+    normalized_x[i] = normalized_x[i - 1] + x_interval;
+  }
+
+  for (int i = 1; i < info.yres; i++) {
+    normalized_y[i] = normalized_y[i - 1] - y_interval;
+  }
+
+  /* Complex number
+     c = a + ib
+     a <- real part
+     b <- imaginary part
+
+     >> (a + ib) ^ 2
+     >> a ^ 2 + 2 * a * ib + (ib) ^ 2
+     >> (a^2 - b^2) + 2ab (i)
+            ^           ^
+            |           |
+           real        imaginary
+
+   */
+
+  /* Mandelbrot's equation
+
+     Zn+1 = Zn ^ 2 + c
+     c <- normalized pixel coordinates
+
+   */
+
+  for (int x = 0; x < info.xres; x++) {
+    for (int y = 0; y < info.yres; y++) {
+      float a = 0.0;
+      float b = 0.0;
+      float a_square = 0.0;
+      float b_square = 0.0;
+      int i = 1;
+
+      while (i < max_iterations
+             && a_square + b_square < 4.0) {
+        a_square = a * a;
+        b_square = b * b;
+
+        b = 2 * a * b + normalized_y[y];
+        a = a_square - b_square + normalized_x[x];;
+
+        i++;
+      }
+
+      set_pixel_color(x, y, colors[i % num_colors]);
+    }
+  }
+}
+
 void draw_character(char c, int x, int y, unsigned int color)
 {
   int length = 8;
@@ -261,12 +359,18 @@ void draw()
   /* cat("README.md"); */
 
   /* draws a cirlce */
+  /*
   int cx = info.xres / 2;
   int cy = info.yres / 2;
   draw_circle(cx, cy, 200);
+  */
 
   /* draws crosshair */
+  /*
   draw_crosshair(cx, cy, 5, 2, 3);
+  */
+
+  draw_fractal();
 
   /* draws characters on screen
   int cx = info.xres / 2;
