@@ -1,3 +1,9 @@
+/** main.c
+ *
+ * $ gcc main.c -o main -lm
+ *
+ **/
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <linux/fb.h>
@@ -352,6 +358,43 @@ void cat(char *file)
   fclose(fptr);
 }
 
+void draw_sine()
+{
+  int wavelength = 60; /* in pixels */
+  int amplitude = 40;  /* in pixels */
+  int speed = 1;       /* in pixels */
+  double pi = 3.14;
+  double factor;
+  int y_center;
+
+  factor = 3.14 / wavelength;
+  y_center = info.yres / 2;
+
+  /* Press Ctrl + C to exit;
+   * OS should bother about releasing the memory */
+  while (1) {
+    for (int x = 0; x < info.xres; x++) {
+      double angle;
+      int y;
+
+      angle = (x + speed) * factor;
+      y = (int) (sin (angle) * amplitude) + y_center;
+
+      set_pixel_color(x, y, 0xFFFFFF);
+    }
+
+    usleep(5000); /* are 5 milliseconds enough? *blinks* */
+
+    /* This is quite inefficient!
+     * We should only zero out the pixels which we are painting,
+     * not the whole framebuffer;
+     * Anyways, This code is not going to run on Vegas sphere */
+    memset(fbuffer, 0, fix.smem_len);
+
+    speed++;
+  }
+}
+
 void draw()
 {
   bytes_per_pixel = info.bits_per_pixel / 8;
@@ -370,7 +413,11 @@ void draw()
   draw_crosshair(cx, cy, 5, 2, 3);
   */
 
+  /*
   draw_fractal();
+  */
+
+  draw_sine();
 
   /* draws characters on screen
   int cx = info.xres / 2;
