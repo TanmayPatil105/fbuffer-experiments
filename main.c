@@ -296,6 +296,49 @@ void draw_fractal()
   }
 }
 
+void draw_logistic_map_fractal()
+{
+  float x_min = 0;
+  float x_max = 4.0;
+  float y_min = 0;
+  float y_max = 1.0;
+  float *normalized_x = NULL;
+  double x_interval, y_interval;
+  int skip = 1000;
+
+  normalized_x = malloc(sizeof (float) * info.xres);
+
+  x_interval = (x_max - x_min) / info.xres;
+  y_interval = (y_max - y_min) / info.yres;
+
+  normalized_x[0] = x_min;
+
+  for (int i = 1; i < info.xres; i++) {
+    normalized_x[i] = normalized_x[i - 1] + x_interval;
+  }
+
+  for (int x = 0; x < info.xres; x++) {
+    float r = normalized_x[x];
+    float ex = 0.5;
+    int y;
+
+    /* skip initial values because we are interested
+     * in saturated values */
+    for (int i = 0; i < skip; i++) {
+      ex = r * ex * (1.0 - ex);
+    }
+
+    for (int i = 0; i < 3000; i++)  {
+      ex = r * ex * (1.0 - ex);
+
+      /* graph co-ordinate -> pixel co-ordinate */
+      y = (1 - ex) / y_interval;
+
+      set_pixel_color(x, y, 0xFFFFFF);
+    }
+  }
+}
+
 void draw_character(char c, int x, int y, unsigned int color)
 {
   int length = 8;
@@ -418,7 +461,11 @@ void draw()
   draw_fractal();
   */
 
+  /*
   draw_sine();
+  */
+
+  draw_logistic_map_fractal();
 
   /* draws characters on screen
   int cx = info.xres / 2;
