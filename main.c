@@ -366,13 +366,20 @@ void draw_sine()
   double pi = 3.14;
   double factor;
   int y_center;
+  size_t memsize, offset;
 
   factor = 3.14 / wavelength;
   y_center = info.yres / 2;
 
+  offset = (y_center - amplitude + 1) * fix.line_length;
+  memsize = (amplitude * 2 - 1) * fix.line_length;
+
   /* Press Ctrl + C to exit;
    * OS should bother about releasing the memory */
   while (1) {
+    /* clear the required framebuffer area */
+    memset(fbuffer + offset, 0, memsize);
+
     for (int x = 0; x < info.xres; x++) {
       double angle;
       int y;
@@ -384,12 +391,6 @@ void draw_sine()
     }
 
     usleep(5000); /* are 5 milliseconds enough? *blinks* */
-
-    /* This is quite inefficient!
-     * We should only zero out the pixels which we are painting,
-     * not the whole framebuffer;
-     * Anyways, This code is not going to run on Vegas sphere */
-    memset(fbuffer, 0, fix.smem_len);
 
     speed++;
   }
