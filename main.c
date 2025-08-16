@@ -95,17 +95,30 @@ static inline void set_pixel_color(int x, int y, unsigned int color)
  * One day! */
 void draw_line(int x1, int y1, int x2, int y2)
 {
+  int dx = abs(x2 - x1);
+  int dy = abs(y2 - y1);
+  int sx = x2 > x1 ? 1 : -1;
+  int sy = y2 > y1 ? 1 : -1;
+  int x = x1, y = y1;
+  int error = dx - dy;
+  int terror; /* temporary error */
 
-  int d1 = 2 * (y2 - y1);
-  int d2 = d1 - (x2 - x1);
-
-  for (int x = x1, y = y1; x <= x2; x++) {
+  for(;;) {
     set_pixel_color(x, y, 0xFFFFFF);
-    d2 += d1;
 
-    if (d2 >= 0) {
-      y++;
-      d2 -= 2 * (x2 - x1);
+    if (x == x2 && y == y2)
+      break;
+
+    terror = 2 * error;
+
+    if (terror > -dy) {
+      error -= dy;
+      x += sx;
+    }
+
+    if (terror < dx) {
+      error += dx;
+      y += sy;
     }
   }
 
