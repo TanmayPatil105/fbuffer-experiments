@@ -452,6 +452,27 @@ void draw_sine()
   }
 }
 
+void
+draw_canvas()
+{
+  for(int frame;;frame++) {
+    for (int x = 0; x < info.xres; x++) {
+      for (int y = 0; y < info.yres; y++) {
+        unsigned int color;
+        int r, g, b;
+
+        r = 255 * ((float) x / info.xres);
+        g = 255 * ((float) y / info.yres);
+        b = 255 * fabs(sin (frame * 0.05));
+
+        color = (r << 16) | (g << 8) | (b << 0);
+
+        set_pixel_color(x, y, color);
+      }
+    }
+  }
+}
+
 void draw()
 {
   bytes_per_pixel = info.bits_per_pixel / 8;
@@ -478,7 +499,11 @@ void draw()
   draw_sine();
   */
 
+  /*
   draw_logistic_map_fractal();
+  */
+
+  draw_canvas();
 
   /* draws characters on screen
   int cx = info.xres / 2;
