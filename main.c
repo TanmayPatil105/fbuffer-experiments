@@ -473,6 +473,89 @@ draw_canvas()
   }
 }
 
+#define min3(x, y, z) \
+        ((x) < (y) && (x) < (z) \
+         ? (x) : \
+        ((y) < (z) \
+         ? (y) : (z)))
+
+#define max3(x, y, z) \
+        ((x) >= (y) && (x) >= (z) \
+         ? (x) : \
+        ((y) >= (z) \
+         ? (y) : (z)))
+
+#define DIV(expr1, expr2) \
+        ((double) (expr1) / (double) (expr2))
+
+/* Barycentric coordinates
+ * Ref: https://www.youtube.com/watch?v=HYAgJN3x4GA
+ */
+static bool
+point_in_triangle(int ax, int ay, int bx, int by,
+                  int cx, int cy, int px, int py)
+{
+  double w1, w2;
+
+  w1 = DIV(  ax * (cy - ay) + (py - ay) * (cx - ax) - px * (cy - ay),
+          /*---------------------------------------------------------*/
+                 (by - ay) * (cx - ax) - (bx - ax) * (cy - ay)
+          );
+
+  w2 = DIV(  py - ay - w1 * (by - ay),
+          /*--------------------------*/
+                    cy - ay
+          );
+
+  return (w1 >= 0) && (w2 >= 0) && ((w1 + w2) <= 1.0);
+}
+
+#define SIZE 200
+
+void
+draw_rasterized_triangle()
+{
+  int vertices[3][2] = {
+    {0, -SIZE},
+    {-SIZE, SIZE},
+    {SIZE, SIZE}
+  };
+  int x_center, y_center;
+  int ax, bx, cx, px;
+  int ay, by, cy, py;
+  int min_x, max_x, min_y, max_y;
+
+  x_center = info.xres / 2;
+  y_center = info.yres / 2;
+
+  ax = x_center + vertices[0][0];
+  ay = y_center + vertices[0][1];
+
+  bx = x_center + vertices[1][0];
+  by = y_center + vertices[1][1];
+
+  cx = x_center + vertices[2][0];
+  cy = y_center + vertices[2][1];
+
+  min_x = min3(ax, bx, cx);
+  min_x = min_x < 0 ? 0 : min_x;
+  max_x = max3(ax, bx, cx);
+  max_x = max_x > info.xres ? info.xres : max_x;
+
+  min_y = min3(ay, by, cy);
+  min_y = min_y < 0 ? 0 : min_y;
+  max_y = max3(ay, by, cy);
+  max_y = max_y > info.yres ? info.yres - 1: max_y;
+
+  for (int px = min_x; px <= max_x; px++) {
+    for (int py = min_y; py <= max_y; py++) {
+      if (point_in_triangle(ax, ay, bx, by, cx, cy, px, py)) {
+        set_pixel_color(px, py, 0xFFFFFF);
+      }
+    }
+  }
+}
+
 void draw()
 {
   bytes_per_pixel = info.bits_per_pixel / 8;
@@ -503,7 +586,11 @@ void draw()
   draw_logistic_map_fractal();
   */
 
+  /*
   draw_canvas();
+  */
+
+  draw_rasterized_triangle();
 
   /* draws characters on screen
   int cx = info.xres / 2;
