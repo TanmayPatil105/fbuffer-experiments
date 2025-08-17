@@ -79,9 +79,6 @@ static inline void set_pixel_color(int x, int y, unsigned int color)
     return;
   }
 
-  if (color == 0)
-    return;
-
   offset = (y * fix.line_length) + (x * bytes_per_pixel);
 
   pixel = (unsigned int *) ((char *) fbuffer + offset);
