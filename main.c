@@ -489,7 +489,7 @@ draw_canvas()
  * Ref: https://www.youtube.com/watch?v=HYAgJN3x4GA
  */
 static bool
-point_in_triangle(int ax, int ay, int bx, int by,
+__point_in_triangle(int ax, int ay, int bx, int by,
                   int cx, int cy, int px, int py)
 {
   double w1, w2;
@@ -505,6 +505,28 @@ point_in_triangle(int ax, int ay, int bx, int by,
           );
 
   return (w1 >= 0) && (w2 >= 0) && ((w1 + w2) <= 1.0);
+}
+
+static bool
+point_in_triangle(int ax, int ay, int bx, int by,
+                  int cx, int cy, int px, int py)
+{
+  double ab_cross, bc_cross, ca_cross; /*  cross products */
+
+  /* If we traverse in a particular direction,
+   * a point inside the triangle will always be on the
+   * same side for each vector ie. left/right */
+
+  /* A  -> B */
+  ab_cross = (bx - ax) * (py - ay) - (by - ay) * (px - ax);
+        /* B -> C */
+  bc_cross = (cx - bx) * (py - by) - (cy - by) * (px - bx);
+             /* C -> A */
+  ca_cross = (ax - cx) * (py - cy) - (ay - cy) * (px - cx);
+
+  return ((ab_cross >= 0 && bc_cross >= 0 && ca_cross >= 0)
+          || (ab_cross < 0 && bc_cross < 0 && ca_cross < 0));
+
 }
 
 #define SIZE 200
