@@ -449,27 +449,6 @@ void draw_sine()
   }
 }
 
-void
-draw_canvas()
-{
-  for(int frame;;frame++) {
-    for (int x = 0; x < info.xres; x++) {
-      for (int y = 0; y < info.yres; y++) {
-        unsigned int color;
-        int r, g, b;
-
-        r = 255 * ((float) x / info.xres);
-        g = 255 * ((float) y / info.yres);
-        b = 255 * fabs(sin (frame * 0.05));
-
-        color = (r << 16) | (g << 8) | (b << 0);
-
-        set_pixel_color(x, y, color);
-      }
-    }
-  }
-}
-
 #define min3(x, y, z) \
         ((x) < (y) && (x) < (z) \
          ? (x) : \
@@ -529,7 +508,7 @@ point_in_triangle(int ax, int ay, int bx, int by,
 
 }
 
-#define SIZE 200
+#define SIZE 100
 
 void
 draw_rasterized_triangle()
@@ -569,9 +548,42 @@ draw_rasterized_triangle()
   for (int px = min_x; px <= max_x; px++) {
     for (int py = min_y; py <= max_y; py++) {
       if (point_in_triangle(ax, ay, bx, by, cx, cy, px, py)) {
-        set_pixel_color(px, py, 0xFFFFFF);
+        set_pixel_color(px, py, 0x0);
       }
     }
+  }
+}
+
+void
+draw_canvas()
+{
+  void *swap_fbuffer;
+  void *tmp_fbuffer;
+
+  swap_fbuffer = mmap(NULL, fix.smem_len, PROT_READ | PROT_WRITE,
+                      MAP_ANON | MAP_PRIVATE, -1, 0);
+  tmp_fbuffer = fbuffer;
+  fbuffer = swap_fbuffer;
+
+  for(int frame;;frame++) {
+    for (int x = 0; x < info.xres; x++) {
+      for (int y = 0; y < info.yres; y++) {
+        unsigned int color;
+        int r, g, b;
+
+        r = 255 * ((float) x / info.xres);
+        g = 255 * ((float) y / info.yres);
+        b = 255 * fabs(sin (frame * 0.05));
+
+        color = (r << 16) | (g << 8) | (b << 0);
+
+        set_pixel_color(x, y, color);
+      }
+    }
+
+    draw_rasterized_triangle();
+
+    memcpy(tmp_fbuffer, swap_fbuffer, fix.smem_len);
   }
 }
 
@@ -605,11 +617,11 @@ void draw()
   draw_logistic_map_fractal();
   */
 
-  /*
   draw_canvas();
-  */
 
+  /*
   draw_rasterized_triangle();
+  */
 
   /* draws characters on screen
   int cx = info.xres / 2;
