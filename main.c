@@ -1,6 +1,7 @@
 /** main.c
  *
  * $ gcc main.c -o main -lm
+ * $ gcc main.c -o main -lm -march=native -DAVX_MEMCPY
  *
  **/
 
@@ -554,6 +555,33 @@ draw_rasterized_triangle()
   }
 }
 
+#ifdef AVX_MEMCPY
+
+#pragma message("Using AVX instructions")
+
+#include <immintrin.h>
+
+static inline void _memcpy(void *dst, void *src, size_t n)
+{
+  __m256i *dvec = (__m256i *) dst;
+  __m256i *svec = (__m256i *) src;
+  size_t nvec = n / sizeof (__m256i);
+
+  for (; nvec > 0; nvec -= 4, svec += 4, dvec += 4) {
+    _mm256_store_si256(dvec,     _mm256_load_si256(svec));
+    _mm256_store_si256(dvec + 1, _mm256_load_si256(svec + 1));
+    _mm256_store_si256(dvec + 2, _mm256_load_si256(svec + 2));
+    _mm256_store_si256(dvec + 3, _mm256_load_si256(svec + 3));
+  }
+
+}
+
+#else
+
+#define _memcpy(dst, src, n) memcpy(dst, src, n)
+
+#endif /* AVX_MEMCPY */
+
 void
 draw_canvas()
 {
@@ -583,7 +611,7 @@ draw_canvas()
 
     draw_rasterized_triangle();
 
-    memcpy(tmp_fbuffer, swap_fbuffer, fix.smem_len);
+    _memcpy(tmp_fbuffer, swap_fbuffer, fix.smem_len);
   }
 }
 
