@@ -615,6 +615,102 @@ draw_canvas()
   }
 }
 
+/**
+ * Math: https://www.a1k0n.net/2011/07/20/donut-math.html
+ */
+void
+draw_donut()
+{
+  const float TWO_PI = 6.28;
+  const float R1 = 1;
+  const float R2 = 2;
+  const float K1 = 300; /* scale */
+  const float K2 = 5;   /* distance from screen */
+  float A = 0;
+  float B = 0;
+  /* Too lazy to call malloc */
+  float z_buffer[1366][768] = { 0 }; /* depth buffer */
+  void *swap_fbuffer = NULL;
+  void *tmp_fbuffer = NULL;
+
+  swap_fbuffer = mmap(NULL, fix.smem_len, PROT_READ | PROT_WRITE,
+                      MAP_ANON | MAP_PRIVATE, -1, 0);
+  tmp_fbuffer = fbuffer;
+  fbuffer = swap_fbuffer;
+
+  for(;;) {
+    float sin_a, sin_b;
+    float cos_a, cos_b;
+
+    sin_a = sin(A);
+    cos_a = cos(A);
+    sin_b = sin(B);
+    cos_b = cos(B);
+
+    for(float theta = 0; theta < TWO_PI; theta += 0.04) {
+      for (float phi = 0; phi < TWO_PI; phi += 0.02) {
+        float sin_theta, cos_theta;
+        float sin_phi, cos_phi;
+        float cx, cy;
+        float x, y, z;
+        float L; /* Luminance */
+
+        sin_theta = sin(theta);
+        sin_phi = sin(phi);
+        cos_theta = cos(theta);
+        cos_phi = cos(phi);
+
+        /* Donut circle 2D coordinates */
+        {
+          cx = R2 + R1 * cos_theta;
+          cy = R1 * sin_theta;
+        }
+
+        /* co-ordinate in 3D space */
+        {
+          x = cx * (cos_b * cos_phi + sin_a * sin_b * sin_phi) - cy * cos_a * sin_b;
+          y = cx * (cos_phi * sin_b - cos_b * sin_a * sin_phi) + cy * cos_a * cos_b;
+          z = K2 + cos_a * (cx * sin_phi) + cy * sin_a ;
+        }
+
+        /* Luminance */
+        { /* FIXME: dynamic light direction */
+          L = (cos_phi * cos_theta * sin_b) - (cos_a * cos_theta * sin_phi) - (sin_a * sin_theta)
+               + cos_b * (cos_a * sin_theta - cos_theta * sin_a * sin_phi);
+        }
+
+        /* 3D co-ordinate is illuminated */
+        if (L > 0) {
+          int xp, yp;
+          float ooz = 1 / z;
+
+          xp = (int)((info.xres / 2) + K1 * x * ooz);
+          yp = (int)((info.yres / 2) + K1 * y * ooz);
+
+          if (z_buffer[xp][yp] < ooz) {
+            int grey = (int)(255 * ooz * L);
+
+            set_pixel_color(xp, yp, (grey << 16) | (grey << 8) | grey);
+            z_buffer[xp][yp] = ooz;
+          }
+        }
+      }
+    }
+
+    /* slow */
+    A += 0.01;
+    B += 0.01;
+
+    /* copy to framebuffer */
+    _memcpy(tmp_fbuffer, swap_fbuffer, fix.smem_len);
+
+    /* state reset */
+    memset(swap_fbuffer, 0, fix.smem_len);
+    memset(z_buffer, 0, sizeof (z_buffer));
+  }
+
+}
+
 void draw()
 {
   bytes_per_pixel = info.bits_per_pixel / 8;
@@ -645,7 +741,11 @@ void draw()
   draw_logistic_map_fractal();
   */
 
+  /*
   draw_canvas();
+  */
+
+  draw_donut();
 
   /*
   draw_rasterized_triangle();
